@@ -1,0 +1,36 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ "feature/*" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [16, 18]
+    steps:
+    - uses: actions/checkout@v3
+    - name: Setup Environment
+      uses: ./.github/actions/setup-env
+    - name: Run Lint
+      run: npm run lint
+    - name: Run Tests
+      run: npm test
+    - name: Check Coverage
+      shell: bash
+      run: |
+        COVERAGE=$(npm test -- --coverage --collectCoverageFrom=src/*.js | grep -o 'All files.*' | awk '{print $4}')
+        if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+          echo "Coverage is less than 80%: $COVERAGE"
+          exit 1
+        fi
+    - name: Upload Build Artifact
+      if: matrix.node-version == 18
+      uses: actions/upload-artifact@v3
+      with:
+        name: build-artifact
+        path: .

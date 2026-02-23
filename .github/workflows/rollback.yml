@@ -1,0 +1,32 @@
+name: AUTO ROLLBACK
+
+on:
+  workflow_dispatch:
+    inputs:
+      failed_tag:
+        description: "The tag that failed deployment"
+        required: true
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Fetch Previous Release Tag
+      id: prev_tag
+      run: |
+        PREV_TAG=$(git describe --tags --abbrev=0 HEAD^)
+        echo "PREV_TAG=$PREV_TAG" >> $GITHUB_OUTPUT
+    - name: Redeploy Previous Image
+      run: |
+        echo "Redeploying $PREV_TAG..."
+        # Simulate redeploy logic
+        docker build -t cicd-lab-project:rollback-$PREV_TAG .
+        docker run -d --name rollback-app -p 3000:3000 cicd-lab-project:rollback-$PREV_TAG
+    - name: Mark Deployment as Failed
+      run: |
+        echo "Marking ${{ github.event.inputs.failed_tag }} as failed deployment."
+    - name: Comment on PR automatically
+      run: |
+        echo "Deployment failed! Reverting to $PREV_TAG."
+        # Use an action like octokit/request-action to comment on PR if available

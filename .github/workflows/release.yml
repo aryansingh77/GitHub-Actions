@@ -1,0 +1,50 @@
+name: RELEASE WORKFLOW
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Semantic Versioning
+      id: versioning
+      run: |
+        VERSION=$(cat version.txt)
+        # Simple Logic: Major if "BREAKING CHANGE" in commit, Minor if "feat:", Patch if "fix:"
+        COMMIT_MSG=$(git log -1 --pretty=format:"%s")
+        if [[ $COMMIT_MSG == *"BREAKING CHANGE"* ]]; then
+          IFS='.' read -r major minor patch <<< "$VERSION"
+          VERSION="$((major + 1)).0.0"
+        elif [[ $COMMIT_MSG == *"feat:"* ]]; then
+          IFS='.' read -r major minor patch <<< "$VERSION"
+          VERSION="$major.$((minor + 1)).0"
+        elif [[ $COMMIT_MSG == *"fix:"* ]]; then
+          IFS='.' read -r major minor patch <<< "$VERSION"
+          VERSION="$major.$minor.$((patch + 1))"
+        fi
+        echo "$VERSION" > version.txt
+        echo "NEW_VERSION=$VERSION" >> $GITHUB_OUTPUT
+    - name: Commit version update
+      run: |
+        git config --global user.name 'github-actions[bot]'
+        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+        git add version.txt
+        git commit -m "chore: bump version to ${{ steps.versioning.outputs.NEW_VERSION }}"
+        git push
+    - name: Create Git Tag
+      run: |
+        git tag "v${{ steps.versioning.outputs.NEW_VERSION }}"
+        git push origin "v${{ steps.versioning.outputs.NEW_VERSION }}"
+    - name: Create GitHub Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: "v${{ steps.versioning.outputs.NEW_VERSION }}"
+        release_name: "Release v${{ steps.versioning.outputs.NEW_VERSION }}"
+        body: "Automated release by GitHub Actions"
+        draft: false
+        prerelease: false
