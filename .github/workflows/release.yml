@@ -30,6 +30,8 @@ jobs:
           IFS='.' read -r major minor patch <<< "$VERSION"
           VERSION="$major.$minor.$((patch + 1))"
         fi
+        # sanitize VERSION: remove BOM and non-printable characters to avoid invalid tag names
+        VERSION=$(printf "%s" "$VERSION" | python3 -c "import sys; s=sys.stdin.read(); print(''.join(ch for ch in s if ch.isprintable()))")
         echo "$VERSION" > version.txt
         echo "NEW_VERSION=$VERSION" >> $GITHUB_OUTPUT
     - name: Commit version update
